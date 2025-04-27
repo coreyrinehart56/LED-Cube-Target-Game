@@ -1,14 +1,24 @@
+// other ideas:
+  //add multiple boss lives (changes color)
+  //add button for changing weapons (firework) or for last shot
+    //or add charge shot (hold button down)
+  //add scoreboard
+  //add 3x3 boss
+  //health or penalty for missing too many times
 
-//add multiple boss lives (changes color)
-//add button for changing weapons (firework) or for last shot
-  //or add charge shot (hold button down)
-//add scoreboard
-//add 3x3 boss
-//health or penalty for missing too many times
+#include <FastLED.h>
 
+// pins
+#define LED_PIN  2    // Data pin for cube LEDs
+#define BARRAGE_BUTTON_PIN  4 // first button pin
+#define MISSILE_BUTTON_PIN 5 // second button pin
+#define GREEN_LED_PIN  6 // Laser barrage ready indicator
+#define YELLOW_LED_PIN 7 // Missile ready indicator
 
-#define GREEN_LED_PIN 6     // Laser barrage ready indicator
-#define YELLOW_LED_PIN 7    // Missile ready indicator
+// Joystick pin setup
+#define JOY_X_PIN   A0  // X-axis analog input
+#define JOY_Y_PIN   A1  // Y-axis analog input
+#define BUTTON_PIN  3   // Button pin for laser shooting
 
 #define LASER_BARRAGE_COOLDOWN 15000  // 15 seconds
 #define MISSILE_COOLDOWN 20000        // 20 seconds
@@ -16,42 +26,33 @@
 unsigned long lastLaserBarrageTime = 0;
 unsigned long lastMissileTime = 0;
 
-#include <FastLED.h>
-
-#define BARRAGE_BUTTON_PIN  4 // first button pin
-#define MISSILE_BUTTON_PIN 5  // second button pin
-#define LED_PIN     2     // Data pin for LEDs
 #define NUM_LEDS    125   // 5x5x5 LED cube (5 * 5 * 5 = 125)
 #define LED_TYPE    WS2812
 #define COLOR_ORDER GRB
 CRGB leds[NUM_LEDS];
 
-bool bigTargetMode = true;  // Set to true to enable 2x2 target
-
+bool bigTargetMode = true;  // Set to true to enable 2x2 target, false for smaller targets
 int bigTargetX = 1;  // starting x (1, so block fits from 1 to 2)
 int bigTargetZ = 1;  // starting z (1, so block fits from 1 to 2)
 unsigned long bigTargetTimer = 0;
 int bigTargetDelay = 300;  // move every 300 ms
 
+int bigTargetHealth = 4; //health (lives) of big target
+int totalHits = 0;
+
 // add target storage
-const int MAX_TARGETS = 10;
+const int MAX_TARGETS = 10; // number of small targets
 int targetX[MAX_TARGETS];
 int targetZ[MAX_TARGETS];
 bool targetAlive[MAX_TARGETS];
 bool bigTargetAlive;
 
+// makes sure big target can only be hit once by each laserbarrage or missile
 bool bigTargetHitThisBarrage = false;
 bool bigTargetHitThisMissile = false;
-int bigTargetHealth = 4;
-int totalHits = 0;
 
 unsigned long targetMoveTimers[MAX_TARGETS];  // individual timers
 int targetMoveDelay = 200;  // smaller delay for smoother movement
-
-// Joystick pin setup
-#define JOY_X_PIN   A0  // X-axis analog input
-#define JOY_Y_PIN   A1  // Y-axis analog input
-#define BUTTON_PIN  3   // Button pin for laser shooting
 
 // Light position (on front face: x = 0, y = vertical, z = front-back)
 int lightX = 0;
@@ -97,6 +98,8 @@ void setup() {
 void loop() {
   int xRaw = analogRead(JOY_X_PIN);
   int yRaw = analogRead(JOY_Y_PIN);
+
+  //joystick debug
   Serial.print(xRaw);
   Serial.print("  ");
   Serial.println(yRaw);
@@ -116,10 +119,6 @@ void loop() {
   }
 
   lightY = 0;
-
-  // Debug
-  //Serial.print("X: "); Serial.print(lightX);
-  //Serial.print(" | Z: "); Serial.println(lightZ);
 
   fill_solid(leds, NUM_LEDS, CRGB::Black);
   
@@ -150,7 +149,7 @@ void loop() {
     }
   }
 
-  // Show targets //////////////////////////////////
+  // Show targets
   if (bigTargetMode) {
     // Draw the 2x2 target block
     for (int dx = 0; dx < 2; dx++) {
